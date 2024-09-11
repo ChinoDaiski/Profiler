@@ -67,16 +67,3 @@ void ProfileReset();
 #define PRO_BEGIN(tagName)
 #define PRO_END(tagName)
 #endif
-
-class Profile {
-public:
-    Profile(const std::wstring& tag) : m_tagName(tag) {
-        PRO_BEGIN(m_tagName);
-    }
-    ~Profile() {
-        PRO_END(m_tagName);
-    }
-
-private:
-    std::wstring m_tagName;
-};

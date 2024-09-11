@@ -26,5 +26,8 @@
     <ClInclude Include="Profiler.h">
       <Filter>소스 파일</Filter>
     </ClInclude>
+    <ClInclude Include="Profiler_Interface.h">
+      <Filter>소스 파일</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

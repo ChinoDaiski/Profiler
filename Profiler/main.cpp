@@ -1,10 +1,10 @@
 
 #include <iostream>
-#include "Profiler.h"
+#include "Profiler_Interface.h"
 
 int main()
 {
-    ProfileReset();
+    InitProfiler();
 
     {
         Profile pf(L"Func1");
@@ -17,5 +17,5 @@ int main()
         // ... ¹º°¡ ÇÔ
     }
 
-    ProfileDataOutText(L"profile_data.txt");
+    OutputProfileData(L"profile_data.txt");
 }
