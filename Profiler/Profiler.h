@@ -1,6 +1,7 @@
 
 #pragma once
 
+#define NOMINMAX
 #include <Windows.h>
 #include <string>
 #include <float.h> // DBL_MAX, DBL_MIN
@@ -56,7 +57,9 @@ void UpdateMinTime(ProfileData* data, double elapsedTime);
 void UpdateMaxTime(ProfileData* data, double elapsedTime);
 void ProfileEnd(const std::wstring& name);
 void ProfileDataOutText(const std::wstring& fileName);
+void ProfileDataOutTextMultiThread(const std::wstring& fileName);
 void ProfileReset();
+void FlushThreadProfileData();
 
 #define PROFILE
 

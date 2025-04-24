@@ -4,10 +4,15 @@
 #include <vector>
 #include <fstream>
 #include <iomanip>
+#include <mutex>
 
 #define PRECISION 8
 
-std::vector<ProfileData> profileDatas;
+thread_local std::vector<ProfileData> profileDatas;
+static std::vector<ProfileData> g_allProfileDatas;
+
+// 컨테이너 접근을 보호할 뮤텍스
+static std::mutex               g_profilesMutex;
 
 ProfileData* findProfileData(const std::wstring& name) {
     for (auto& sample : profileDatas) {
@@ -124,4 +129,104 @@ void ProfileDataOutText(const std::wstring& fileName) {
 
 void ProfileReset() {
     profileDatas.clear();
+    g_allProfileDatas.clear();
+}
+
+
+// TLS → 전역으로 옮기고, name 기준으로 합산
+void FlushThreadProfileData()
+{
+    std::lock_guard<std::mutex> lk(g_profilesMutex);
+
+    for (auto& td : profileDatas)
+    {
+        // 같은 name 항목 찾기
+        auto it = std::find_if(
+            g_allProfileDatas.begin(), g_allProfileDatas.end(),
+            [&](const ProfileData& pd) {
+                return pd.name == td.name;
+            });
+
+        if (it == g_allProfileDatas.end())
+        {
+            // 신규 태그면 그대로 move
+            g_allProfileDatas.push_back(std::move(td));
+        }
+        else
+        {
+            // 기존 태그면 시간 합산, 호출 횟수 합산
+            it->totalTime += td.totalTime;
+            it->callCount += td.callCount;
+
+            // (선택) 필요하다면 min/max 통계도 갱신할 수 있음
+            for (int i = 0; i < THRESHOLD; ++i) {
+                it->minTime[i] = std::min(it->minTime[i], td.minTime[i]);
+                it->maxTime[i] = std::max(it->maxTime[i], td.maxTime[i]);
+            }
+        }
+    }
+
+    // TLS 벡터 비우기
+    profileDatas.clear();
+}
+
+void ProfileDataOutTextMultiThread(const std::wstring& fileName)
+{
+    std::wofstream file(fileName);
+    if (!file.is_open()) return;
+
+    // 헤더
+    file
+        << std::left << std::setw(24) << L"Name"
+        << L" | " << std::right << std::setw(12) << L"Average"
+        << L" | " << std::setw(8) << L"Calls"
+        << L" | " << std::setw(12) << L"Total"
+        << L" | " << std::setw(12) << L"Min"
+        << L" | " << std::setw(12) << L"Max"
+        << L"\n";
+
+    // 구분선
+    file << std::wstring(24 + 3 + 12 + 3 + 8 + 3 + 12 + 3 + 12 + 3 + 12, L'-') << L"\n";
+
+    // 데이터 행
+    for (const auto& pd : g_allProfileDatas)
+    {
+        double average = pd.callCount > 0
+            ? pd.totalTime / pd.callCount
+            : 0.0;
+
+        // 전체 호출 중 최소·최대 시간 계산
+        double minVal = DBL_MAX;
+        double maxVal = DBL_MIN;
+        for (int i = 0; i < THRESHOLD; ++i) {
+            minVal = std::min(minVal, pd.minTime[i]);
+            maxVal = std::max(maxVal, pd.maxTime[i]);
+        }
+        // 만약 실제 호출이 없었다면 0으로
+        if (pd.callCount == 0) {
+            minVal = maxVal = 0.0;
+        }
+
+        file
+            // Name (좌측 정렬, 24칸)
+            << std::left << std::setw(24) << pd.name
+            << L" | "
+            // Average (우측 정렬, 소수점 6자리, 12칸)
+            << std::right << std::setw(12) << std::fixed << std::setprecision(6) << average
+            << L" | "
+            // Calls (우측 정렬, 8칸)
+            << std::setw(8) << pd.callCount
+            << L" | "
+            // Total (우측 정렬, 소수점 6자리, 12칸)
+            << std::setw(12) << std::fixed << std::setprecision(6) << pd.totalTime
+            << L" | "
+            // Min (우측 정렬, 소수점 6자리, 12칸)
+            << std::setw(12) << std::fixed << std::setprecision(6) << minVal
+            << L" | "
+            // Max (우측 정렬, 소수점 6자리, 12칸)
+            << std::setw(12) << std::fixed << std::setprecision(6) << maxVal
+            << L"\n";
+    }
+
+    file.close();
 }

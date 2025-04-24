@@ -17,5 +17,7 @@ int main()
         // ... ¹º°¡ ÇÔ
     }
 
+    TerminateMeasure();
+
     OutputProfileData(L"profile_data.txt");
 }

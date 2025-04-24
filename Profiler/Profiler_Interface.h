@@ -2,16 +2,33 @@
 
 #include "Profiler.h"
 
+UINT32 isMultiThread = 0;
+
 // 프로파일링 시작시 호출
 void InitProfiler(void)
 {
     ProfileReset();
 }
 
+// 해당 스레드에서의 측정이 끝났을 경우 호출
+void TerminateMeasure(void)
+{
+    FlushThreadProfileData();
+
+    InterlockedIncrement(&isMultiThread);
+}
+
 // InitProfiler 호출 이후에 축척된 데이터 출력
 void OutputProfileData(const std::wstring& fileName)
 {
-    ProfileDataOutText(fileName);
+    UINT32 callCnt = InterlockedCompareExchange(&isMultiThread, 0, 0);
+
+    // 한번이라도 TerminateMeasure를 호출해서 g_allProfileDatas에 데이터를 옮겼다면
+    if (callCnt != 0)
+        ProfileDataOutTextMultiThread(fileName);
+    // 아니라면 thread_local인 profileDatas 변수에 있는 값을 그대로 출력
+    else
+        ProfileDataOutText(fileName);
 }
 
 class Profile {
